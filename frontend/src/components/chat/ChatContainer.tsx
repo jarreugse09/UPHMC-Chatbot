@@ -26,10 +26,14 @@ const ChatContainer: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
-    loadConversations();
-  }, []);
+    if (user) {
+      loadConversations();
+    }
+  }, [user]);
 
   const loadConversations = async () => {
+    if (!user) return;
+
     try {
       const response = await conversationAPI.getAll();
       setConversations(response.data.conversations);

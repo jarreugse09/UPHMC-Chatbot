@@ -8,7 +8,7 @@ import {
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Login from "./components/auth/Login";
 import Register from "./components/auth/Register";
-import ChatContainer from "./components/chat/chatContainer";
+import ChatContainer from "./components/chat/ChatContainer";
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
