@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bot, LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X, User } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { conversationAPI, chatAPI } from "../../services/api";
 import type { Conversation, Message } from "../../types/index";
@@ -28,6 +29,9 @@ const ChatContainer: React.FC = () => {
   useEffect(() => {
     if (user) {
       loadConversations();
+    } else {
+      setConversations([]);
+      setCurrentConversation(null);
     }
   }, [user]);
 
@@ -43,10 +47,17 @@ const ChatContainer: React.FC = () => {
   };
 
   const loadConversation = async (id: string) => {
+    if (!user) return;
     try {
       const response = await conversationAPI.getById(id);
       setCurrentConversation(response.data.conversation);
-      setMessages(response.data.messages);
+      const mappedMessages = response.data.messages.map((msg: any) => ({
+        id: msg._id || msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp,
+      }));
+      setMessages(mappedMessages);
       setSidebarOpen(false);
     } catch (error) {
       console.error("Failed to load conversation:", error);
@@ -60,7 +71,7 @@ const ChatContainer: React.FC = () => {
   };
 
   const handleDeleteConversation = async (id: string) => {
-    if (!confirm("Delete this conversation?")) return;
+    if (!user || !confirm("Delete this conversation?")) return;
 
     try {
       await conversationAPI.delete(id);
@@ -87,7 +98,7 @@ const ChatContainer: React.FC = () => {
     try {
       const response = await chatAPI.sendMessage(
         currentConversation?._id || null,
-        content
+        content,
       );
 
       const newMessages: Message[] = [
@@ -105,15 +116,23 @@ const ChatContainer: React.FC = () => {
         },
       ];
 
-      if (!currentConversation) {
-        await loadConversations();
-        await loadConversation(response.data.conversationId);
+      if (user) {
+        if (!currentConversation) {
+          await loadConversations();
+          await loadConversation(response.data.conversationId);
+        } else {
+          setMessages((prev) => {
+            const filtered = prev.filter((m) => m.id !== tempUserMessage.id);
+            return [...filtered, ...newMessages];
+          });
+          await loadConversations();
+        }
       } else {
+        // For guests, just update the local state
         setMessages((prev) => {
           const filtered = prev.filter((m) => m.id !== tempUserMessage.id);
           return [...filtered, ...newMessages];
         });
-        await loadConversations();
       }
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -124,20 +143,83 @@ const ChatContainer: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-perps-cream">
+    <div className="flex h-screen bg-gray-100 font-sans">
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 w-80 transform transition-transform duration-300 z-30 ${
+        className={`fixed inset-y-0 left-0 w-80 bg-white border-r border-gray-200 transform transition-transform duration-300 z-30 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 lg:static`}
+        } lg:translate-x-0 lg:static lg:flex lg:flex-col`}
       >
-        <ConversationList
-          conversations={conversations}
-          currentConversationId={currentConversation?._id || null}
-          onSelect={loadConversation}
-          onDelete={handleDeleteConversation}
-          onNew={handleNewConversation}
-        />
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img
+              src="/uphmc-logo.png"
+              alt="UPHMC Logo"
+              className="w-6 h-auto"
+            />
+            <h1 className="font-bold text-xl text-gray-800">Perps AI</h1>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden text-gray-500 hover:text-gray-800"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {user ? (
+          <ConversationList
+            conversations={conversations}
+            currentConversationId={currentConversation?._id || null}
+            onSelect={loadConversation}
+            onDelete={handleDeleteConversation}
+            onNew={handleNewConversation}
+          />
+        ) : (
+          <div className="p-4 flex-1 flex flex-col justify-center items-center text-center">
+            <User className="w-16 h-16 text-gray-400 mb-4" />
+            <h2 className="font-semibold text-lg text-gray-800">
+              Sign In for More
+            </h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Log in to save your conversations and access your chat history.
+            </p>
+            <Link
+              to="/login"
+              className="w-full bg-perps-red hover:bg-perps-darkred text-white font-bold py-2 px-4 rounded-lg transition"
+            >
+              Login
+            </Link>
+            <Link
+              to="/register"
+              className="mt-2 text-sm text-perps-red hover:underline"
+            >
+              Don't have an account?
+            </Link>
+          </div>
+        )}
+
+        {user && (
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-perps-darkred flex items-center justify-center text-white font-bold">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium text-gray-800">
+                  {user.name}
+                </span>
+              </div>
+              <button
+                onClick={logout}
+                className="text-gray-500 hover:text-perps-red transition"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Overlay for mobile */}
@@ -149,58 +231,46 @@ const ChatContainer: React.FC = () => {
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-white">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden text-gray-600 hover:text-gray-900"
-            >
-              {sidebarOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-perps-yellow rounded-full flex items-center justify-center">
-                <Bot className="w-5 h-5 text-perps-red" />
-              </div>
-              <div>
-                <h1 className="font-bold text-perps-darkred">Perps AI</h1>
-                <p className="text-xs text-gray-500">UPHSD Molino Assistant</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600 hidden sm:inline">
-              {user?.name}
-            </span>
+        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between lg:hidden">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="text-gray-600 hover:text-gray-900"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <h1 className="font-bold text-xl text-gray-800">Perps AI</h1>
+          {user ? (
             <button
               onClick={logout}
-              className="text-gray-600 hover:text-perps-red transition"
+              className="text-gray-500 hover:text-perps-red transition"
               title="Logout"
             >
               <LogOut className="w-5 h-5" />
             </button>
-          </div>
+          ) : (
+            <Link to="/login" className="text-sm font-semibold text-perps-red">
+              Login
+            </Link>
+          )}
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-4xl mx-auto">
             {messages.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-perps-yellow rounded-full mb-4">
-                  <Bot className="w-10 h-10 text-perps-red" />
-                </div>
-                <h2 className="text-2xl font-bold text-perps-darkred mb-2">
-                  Welcome to Perps AI
+              <div className="text-center py-16">
+                <img
+                  src="/uphmc-logo.png"
+                  alt="UPHMC Logo"
+                  className="w-24 h-auto mx-auto mb-6"
+                />
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                  How can I help you today?
                 </h2>
-                <p className="text-gray-600 mb-6">
-                  Your University of Perpetual Help System Dalta - Molino Campus
-                  assistant
+                <p className="text-gray-500 mb-8">
+                  Ask me anything about UPHSD Molino Campus.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
                   {[
@@ -212,9 +282,11 @@ const ChatContainer: React.FC = () => {
                     <button
                       key={i}
                       onClick={() => handleSendMessage(question)}
-                      className="text-left p-4 bg-white border border-gray-200 rounded-lg hover:border-perps-red hover:shadow-md transition"
+                      className="text-left p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-perps-red hover:bg-perps-cream transition-all duration-200"
                     >
-                      <p className="text-sm text-gray-700">{question}</p>
+                      <p className="font-medium text-sm text-gray-700">
+                        {question}
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -231,7 +303,9 @@ const ChatContainer: React.FC = () => {
         </div>
 
         {/* Input Area */}
-        <ChatInput onSend={handleSendMessage} disabled={loading} />
+        <div className="bg-white border-t border-gray-200 p-4">
+          <ChatInput onSend={handleSendMessage} disabled={loading} />
+        </div>
       </div>
     </div>
   );

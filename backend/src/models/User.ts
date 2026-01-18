@@ -33,24 +33,20 @@ const userSchema = new Schema({
   },
 });
 
-userSchema.pre("save", function (next: any) {
-  if (!this.isModified("password")) return next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
 
-  const user = this;
-  bcrypt.genSalt(10, (err, salt) => {
-    if (err) return next(err);
-
-    (bcrypt.hash as any)(user.password, salt, (err: any, hash: string) => {
-      if (err) return next(err);
-
-      user.password = hash as string;
-      next();
-    });
-  });
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(this.password, salt);
+    this.password = hash;
+  } catch (err) {
+    throw err;
+  }
 });
 
 userSchema.methods.comparePassword = async function (
-  candidatePassword: string
+  candidatePassword: string,
 ): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };

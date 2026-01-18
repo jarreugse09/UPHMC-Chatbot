@@ -19,6 +19,27 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Handle auth errors globally: clear session and redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401 || status === 403) {
+      try {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      } catch {}
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login"
+      ) {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
 // Auth API
 export const authAPI = {
   register: (email: string, password: string, name: string) =>
@@ -34,7 +55,7 @@ export const conversationAPI = {
 
   getById: (id: string) =>
     api.get<{ conversation: Conversation; messages: Message[] }>(
-      `/conversations/${id}`
+      `/conversations/${id}`,
     ),
 
   create: (title?: string) =>

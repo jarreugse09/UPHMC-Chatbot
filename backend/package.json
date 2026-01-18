@@ -9,7 +9,7 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@google/genai": "latest",
+    "@google/genai": "^1.37.0",
     "bcryptjs": "latest",
     "cors": "latest",
     "dotenv": "latest",

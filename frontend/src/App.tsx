@@ -1,4 +1,3 @@
-import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,51 +9,32 @@ import Login from "./components/auth/Login";
 import Register from "./components/auth/Register";
 import ChatContainer from "./components/chat/ChatContainer";
 
-const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
+const AppRoutes = () => {
+  const { user } = useAuth();
 
-const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/chat" />;
+  return (
+    <Routes>
+      <Route path="/chat" element={<ChatContainer />} />
+      <Route
+        path="/login"
+        element={!user ? <Login /> : <Navigate to="/chat" />}
+      />
+      <Route
+        path="/register"
+        element={!user ? <Register /> : <Navigate to="/chat" />}
+      />
+      <Route path="*" element={<Navigate to="/chat" />} />
+    </Routes>
+  );
 };
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/chat"
-            element={
-              <PrivateRoute>
-                <ChatContainer />
-              </PrivateRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to="/chat" />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </Router>
   );
 }
 

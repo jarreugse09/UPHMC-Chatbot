@@ -43,10 +43,17 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       content: msg.content,
     }));
 
-    const aiResponse = await geminiService.generateResponse(
-      message,
-      conversationHistory
-    );
+    let aiResponse: string;
+    try {
+      aiResponse = await geminiService.generateResponse(
+        message,
+        conversationHistory,
+      );
+    } catch (err) {
+      console.error("Gemini API failed, using fallback:", err);
+      aiResponse =
+        "I'm sorry, I can't access the AI service right now. However, I can still help with general information about the University of Perpetual Help System Dalta - Molino Campus. Please try asking again in a moment.";
+    }
 
     const assistantMessage = new Message({
       conversationId: conversation._id,
