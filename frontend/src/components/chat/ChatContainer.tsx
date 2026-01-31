@@ -16,6 +16,10 @@ const ChatContainer: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<
+    string | null
+  >(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -70,18 +74,34 @@ const ChatContainer: React.FC = () => {
     setSidebarOpen(false);
   };
 
-  const handleDeleteConversation = async (id: string) => {
-    if (!user || !confirm("Delete this conversation?")) return;
+  const handleDeleteConversation = (id: string) => {
+    if (!user) return;
+    setConversationToDelete(id);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!conversationToDelete) return;
 
     try {
-      await conversationAPI.delete(id);
-      setConversations(conversations.filter((c) => c._id !== id));
-      if (currentConversation?._id === id) {
+      await conversationAPI.delete(conversationToDelete);
+      setConversations(
+        conversations.filter((c) => c._id !== conversationToDelete),
+      );
+      if (currentConversation?._id === conversationToDelete) {
         handleNewConversation();
       }
     } catch (error) {
       console.error("Failed to delete conversation:", error);
+    } finally {
+      setDeleteModalOpen(false);
+      setConversationToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setDeleteModalOpen(false);
+    setConversationToDelete(null);
   };
 
   const handleSendMessage = async (content: string) => {
@@ -307,6 +327,34 @@ const ChatContainer: React.FC = () => {
           <ChatInput onSend={handleSendMessage} disabled={loading} />
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm mx-4">
+            <h2 className="text-xl font-bold text-gray-800 mb-2">
+              Delete Conversation?
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-white bg-perps-red hover:bg-perps-darkred rounded-lg transition"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
