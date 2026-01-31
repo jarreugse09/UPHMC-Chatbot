@@ -1,10 +1,10 @@
 import express from "express";
 import { sendMessage } from "../controllers/chatController";
-import { authenticateToken } from "../middleware/auth";
+import { optionalAuthenticateToken } from "../middleware/auth";
 
 const router = express.Router();
 
-router.use(authenticateToken);
+router.use(optionalAuthenticateToken);
 
 router.post("/message", sendMessage);
 

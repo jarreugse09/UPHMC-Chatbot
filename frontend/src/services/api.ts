@@ -24,7 +24,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401 || status === 403) {
+    // Only redirect to login on 401 (not authenticated)
+    // Don't redirect on 403 (forbidden - guests reaching message limit)
+    if (status === 401) {
       try {
         localStorage.removeItem("token");
         localStorage.removeItem("user");

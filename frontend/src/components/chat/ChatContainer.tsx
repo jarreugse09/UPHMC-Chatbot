@@ -20,7 +20,15 @@ const ChatContainer: React.FC = () => {
   const [conversationToDelete, setConversationToDelete] = useState<
     string | null
   >(null);
+  const [guestSignInModalOpen, setGuestSignInModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const GUEST_MESSAGE_LIMIT = 3;
+
+  const guestMessageCount = !user
+    ? messages.filter((m) => m.role === "user").length
+    : 0;
+  const guestLimitReached = !user && guestMessageCount >= GUEST_MESSAGE_LIMIT;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -105,6 +113,12 @@ const ChatContainer: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string) => {
+    // Check if guest has reached message limit
+    if (!user && guestLimitReached) {
+      setGuestSignInModalOpen(true);
+      return;
+    }
+
     setLoading(true);
 
     const tempUserMessage: Message = {
@@ -154,9 +168,15 @@ const ChatContainer: React.FC = () => {
           return [...filtered, ...newMessages];
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to send message:", error);
-      setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
+      // Check if it's a 403 (guest message limit reached)
+      if (error?.response?.status === 403) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
+        setGuestSignInModalOpen(true);
+      } else {
+        setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
+      }
     } finally {
       setLoading(false);
     }
@@ -324,7 +344,16 @@ const ChatContainer: React.FC = () => {
 
         {/* Input Area */}
         <div className="bg-white border-t border-gray-200 p-4">
-          <ChatInput onSend={handleSendMessage} disabled={loading} />
+          <ChatInput
+            onSend={handleSendMessage}
+            disabled={loading || guestLimitReached}
+          />
+          {guestLimitReached && (
+            <p className="text-center text-sm text-perps-red mt-2 font-medium">
+              You've reached your free message limit. Please sign in to continue
+              chatting.
+            </p>
+          )}
         </div>
       </div>
 
@@ -350,6 +379,41 @@ const ChatContainer: React.FC = () => {
                 className="px-4 py-2 text-white bg-perps-red hover:bg-perps-darkred rounded-lg transition"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Guest Sign-In Modal */}
+      {guestSignInModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm mx-4">
+            <h2 className="text-xl font-bold text-gray-800 mb-2">
+              Unlock More Messages
+            </h2>
+            <p className="text-gray-600 mb-6">
+              You've used your 3 free messages. Sign in to continue chatting and
+              save your conversations.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link
+                to="/login"
+                className="text-center px-4 py-2 text-white bg-perps-red hover:bg-perps-darkred rounded-lg transition font-semibold"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/register"
+                className="text-center px-4 py-2 text-perps-red bg-perps-cream hover:bg-gray-100 rounded-lg transition font-semibold"
+              >
+                Create Account
+              </Link>
+              <button
+                onClick={() => setGuestSignInModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition"
+              >
+                Continue as Guest
               </button>
             </div>
           </div>
