@@ -44,6 +44,7 @@ const ChatContainer: React.FC = () => {
     } else {
       setConversations([]);
       setCurrentConversation(null);
+      setMessages([]);
     }
   }, [user]);
 
