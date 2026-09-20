@@ -204,7 +204,7 @@ const ChatContainer: React.FC = () => {
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessageId
-                  ? { ...msg, content: msg.content + text, isStreaming: false }
+                  ? { ...msg, content: msg.content + text, isStreaming: true }
                   : msg,
               ),
             );
@@ -226,6 +226,28 @@ const ChatContainer: React.FC = () => {
                       ...msg,
                       content: data.partial || data.message || msg.content,
                       isStreaming: false,
+                    }
+                  : msg,
+              ),
+            );
+          },
+          onSources: (sources) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId ? { ...msg, sources } : msg,
+              ),
+            );
+          },
+          onReliability: (data) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? {
+                      ...msg,
+                      content: data.agreement ? msg.content : data.knownAnswer,
+                      reliabilityNote: data.agreement
+                        ? undefined
+                        : "This response was checked against a predefined answer and corrected for consistency.",
                     }
                   : msg,
               ),

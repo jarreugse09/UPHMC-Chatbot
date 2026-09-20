@@ -34,11 +34,26 @@ const streamAssistantResponse = async (req, res, userMessage, conversationHistor
         assistantMessage: assistantMessageData,
     });
     try {
-        for await (const chunk of geminiService_1.default.generateResponseStream(userMessage, conversationHistory)) {
+        for await (const event of geminiService_1.default.generateResponseStream(userMessage, conversationHistory)) {
             if (clientDisconnected)
                 break;
-            responseText += chunk;
-            writeEvent(res, "chunk", { text: chunk });
+            if (event.type === "chunk") {
+                responseText += event.text;
+                writeEvent(res, "chunk", { text: event.text });
+            }
+            else if (event.type === "sources") {
+                writeEvent(res, "sources", { sources: event.sources });
+            }
+            else if (event.type === "reliability") {
+                if (!event.agreement) {
+                    responseText = event.knownAnswer;
+                }
+                writeEvent(res, "reliability", {
+                    agreement: event.agreement,
+                    score: event.score,
+                    knownAnswer: event.knownAnswer,
+                });
+            }
         }
         if (!responseText) {
             throw new Error("Empty response from AI model");

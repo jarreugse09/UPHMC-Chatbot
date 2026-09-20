@@ -1,5 +1,14 @@
 import axios from "axios";
-import type { AuthResponse, Conversation, Message } from "../types/index";
+import type {
+  AuthResponse,
+  Conversation,
+  GroundingSource,
+  Message,
+  StreamDoneData,
+  StreamErrorData,
+  StreamReliabilityData,
+  StreamStartData,
+} from "../types/index";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -78,10 +87,12 @@ export const chatAPI = {
     conversationId: string | null,
     message: string,
     handlers: {
-      onStart: (data: any) => void;
+      onStart: (data: StreamStartData) => void;
       onChunk: (text: string) => void;
-      onDone: (data: any) => void;
-      onError: (data: any) => void;
+      onDone: (data: StreamDoneData) => void;
+      onError: (data: StreamErrorData) => void;
+      onSources: (sources: GroundingSource[]) => void;
+      onReliability: (data: StreamReliabilityData) => void;
     },
     signal?: AbortSignal,
   ) => {
@@ -132,6 +143,8 @@ export const chatAPI = {
       if (eventName === "chunk") handlers.onChunk(parsedData.text || "");
       if (eventName === "done") handlers.onDone(parsedData);
       if (eventName === "error") handlers.onError(parsedData);
+      if (eventName === "sources") handlers.onSources(parsedData.sources || []);
+      if (eventName === "reliability") handlers.onReliability(parsedData);
     };
 
     while (true) {

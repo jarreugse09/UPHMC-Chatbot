@@ -23,6 +23,24 @@ const generationConfig = {
   responseMimeType: "text/plain",
 };
 
+const RESPONSE_FORMAT_INSTRUCTION =
+  "Format the answer as clean Markdown where it improves readability. Use concise headings, bold or italic emphasis, bullet or numbered lists for steps, Markdown tables for comparisons, blockquotes for cited statements, and fenced code blocks with a language label for code. Do not force Markdown into simple conversational replies.";
+
+export interface GroundingSource {
+  uri: string;
+  title: string;
+}
+
+export type GeminiStreamEvent =
+  | { type: "chunk"; text: string }
+  | { type: "sources"; sources: GroundingSource[] }
+  | {
+      type: "reliability";
+      agreement: boolean;
+      score: number;
+      knownAnswer: string;
+    };
+
 const FEW_SHOT_CONTENTS: Array<{
   role: "user" | "model";
   parts: { text: string }[];
@@ -429,7 +447,7 @@ class GeminiService {
   async *generateResponseStream(
     userMessage: string,
     conversationHistory: Array<IConversationMessage> = [],
-  ): AsyncGenerator<string, void, unknown> {
+  ): AsyncGenerator<GeminiStreamEvent, void, unknown> {
     try {
       const contents = conversationHistory.map((msg: IConversationMessage) => ({
         role: msg.role === "assistant" ? "model" : "user",
@@ -438,7 +456,11 @@ class GeminiService {
 
       contents.push({
         role: "user",
-        parts: [{ text: userMessage }],
+        parts: [
+          {
+            text: `${userMessage}\n\n${RESPONSE_FORMAT_INSTRUCTION}`,
+          },
+        ],
       });
 
       console.log(
@@ -448,15 +470,49 @@ class GeminiService {
       const result = await model.generateContentStream({
         contents,
         generationConfig,
+        tools: [{ googleSearchRetrieval: {} }],
       });
 
       let receivedText = false;
+      let responseText = "";
+      const groundingSources = new Map<string, GroundingSource>();
       for await (const chunk of result.stream) {
         const text = chunk.text();
         if (text) {
           receivedText = true;
-          yield text;
+          responseText += text;
+          yield { type: "chunk", text };
         }
+
+        const groundingChunks =
+          chunk.candidates?.[0]?.groundingMetadata?.groundingChuncks;
+        groundingChunks?.forEach((groundingChunk) => {
+          const source = groundingChunk.web;
+          if (source?.uri) {
+            groundingSources.set(source.uri, {
+              uri: source.uri,
+              title: source.title || source.uri,
+            });
+          }
+        });
+      }
+
+      if (groundingSources.size > 0) {
+        yield {
+          type: "sources",
+          sources: Array.from(groundingSources.values()),
+        };
+      }
+
+      const knownAnswer = this.findKnownAnswer(userMessage);
+      if (knownAnswer) {
+        const score = this.calculateSimilarity(knownAnswer, responseText);
+        yield {
+          type: "reliability",
+          agreement: score >= 0.35,
+          score,
+          knownAnswer,
+        };
       }
 
       if (!receivedText) {
@@ -468,6 +524,34 @@ class GeminiService {
       console.error("Gemini streaming API Error:", error);
       throw new Error("Failed to generate streaming response from AI");
     }
+  }
+
+  private findKnownAnswer(userMessage: string): string | null {
+    const normalizedMessage = userMessage.trim().toLowerCase();
+    for (let index = 0; index < FEW_SHOT_CONTENTS.length - 1; index += 1) {
+      const question = FEW_SHOT_CONTENTS[index];
+      const answer = FEW_SHOT_CONTENTS[index + 1];
+      if (
+        question.role === "user" &&
+        answer.role === "model" &&
+        question.parts[0].text.trim().toLowerCase() === normalizedMessage
+      ) {
+        return answer.parts[0].text;
+      }
+    }
+    return null;
+  }
+
+  private calculateSimilarity(first: string, second: string): number {
+    const firstWords = new Set(first.toLowerCase().match(/[a-z0-9]+/g) || []);
+    const secondWords = new Set(second.toLowerCase().match(/[a-z0-9]+/g) || []);
+    if (firstWords.size === 0 || secondWords.size === 0) return 0;
+
+    let sharedWords = 0;
+    firstWords.forEach((word) => {
+      if (secondWords.has(word)) sharedWords += 1;
+    });
+    return sharedWords / Math.max(firstWords.size, secondWords.size);
   }
 
   async generateResponse(
@@ -482,7 +566,11 @@ class GeminiService {
 
       contents.push({
         role: "user",
-        parts: [{ text: userMessage }],
+        parts: [
+          {
+            text: `${userMessage}\n\n${RESPONSE_FORMAT_INSTRUCTION}`,
+          },
+        ],
       });
 
       console.log(
@@ -492,6 +580,7 @@ class GeminiService {
       const result = await model.generateContent({
         contents,
         generationConfig,
+        tools: [{ googleSearchRetrieval: {} }],
       });
 
       const response = await result.response;

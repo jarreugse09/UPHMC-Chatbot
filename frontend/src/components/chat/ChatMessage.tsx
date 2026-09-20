@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Bot, User, Clipboard, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import "highlight.js/styles/github-dark.css";
 import type { Message } from "../../types/index";
 
 interface ChatMessageProps {
@@ -18,6 +20,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       setTimeout(() => setCopied(false), 2000);
     });
   };
+
+  const markdownForRender =
+    message.isStreaming &&
+    (message.content.match(/```/g) || []).length % 2 === 1
+      ? `${message.content}\n\n\`\`\``
+      : message.content;
 
   return (
     <div className={`group flex gap-3.5 my-5 ${isUser ? "justify-end" : ""}`}>
@@ -60,20 +68,76 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
               components={{
-                p: ({ node, ...props }) => (
-                  <p className="mb-2 last:mb-0" {...props} />
+                h1: (props) => (
+                  <h1
+                    className="mb-3 text-lg font-bold text-gray-900"
+                    {...props}
+                  />
                 ),
-                ol: ({ node, ...props }) => (
+                h2: (props) => (
+                  <h2
+                    className="mb-2 text-base font-bold text-gray-900"
+                    {...props}
+                  />
+                ),
+                h3: (props) => (
+                  <h3
+                    className="mb-2 text-sm font-bold text-gray-900"
+                    {...props}
+                  />
+                ),
+                p: (props) => <p className="mb-2 last:mb-0" {...props} />,
+                ol: (props) => (
                   <ol className="list-decimal list-inside" {...props} />
                 ),
-                ul: ({ node, ...props }) => (
+                ul: (props) => (
                   <ul className="list-disc list-inside" {...props} />
                 ),
-                code({ inline, className, children, ...props }: any) {
+                blockquote: (props) => (
+                  <blockquote
+                    className="border-l-2 border-perps-yellow pl-3 italic text-gray-600"
+                    {...props}
+                  />
+                ),
+                table: (props) => (
+                  <div className="my-3 overflow-x-auto">
+                    <table
+                      className="min-w-full text-left text-xs"
+                      {...props}
+                    />
+                  </div>
+                ),
+                th: (props) => (
+                  <th
+                    className="border-b border-gray-300 px-3 py-2 font-semibold"
+                    {...props}
+                  />
+                ),
+                td: (props) => (
+                  <td
+                    className="border-b border-gray-200 px-3 py-2 align-top"
+                    {...props}
+                  />
+                ),
+                a: (props) => (
+                  <a
+                    className="text-perps-red underline underline-offset-2 hover:text-perps-darkred"
+                    target="_blank"
+                    rel="noreferrer"
+                    {...props}
+                  />
+                ),
+                code({
+                  inline,
+                  className,
+                  children,
+                  ...props
+                }: React.HTMLAttributes<HTMLElement> & { inline?: boolean }) {
                   const match = /language-(\w+)/.exec(className || "");
                   return !inline && match ? (
-                    <div className="my-2 bg-gray-800 rounded-md">
+                    <div className="my-3 overflow-hidden rounded-md bg-gray-800">
                       <div className="flex items-center justify-between px-3 py-1 bg-gray-700 text-gray-300 text-xs rounded-t-md">
                         <span>{match[1]}</span>
                       </div>
@@ -85,7 +149,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                     </div>
                   ) : (
                     <code
-                      className="px-1 py-0.5 bg-gray-200 rounded-sm text-sm"
+                      className="rounded-sm bg-gray-200 px-1 py-0.5 text-sm"
                       {...props}
                     >
                       {children}
@@ -94,10 +158,33 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                 },
               }}
             >
-              {message.content}
+              {markdownForRender}
             </ReactMarkdown>
           )}
         </div>
+
+        {message.reliabilityNote && (
+          <p className="mt-2 px-2 text-[11px] text-gray-400">
+            {message.reliabilityNote}
+          </p>
+        )}
+
+        {message.sources && message.sources.length > 0 && (
+          <div className="mt-2 px-2 text-[11px] text-gray-400">
+            <span className="mr-2 font-medium text-gray-500">Sources:</span>
+            {message.sources.map((source) => (
+              <a
+                key={source.uri}
+                href={source.uri}
+                target="_blank"
+                rel="noreferrer"
+                className="mr-2 inline-block text-perps-red hover:underline"
+              >
+                {source.title}
+              </a>
+            ))}
+          </div>
+        )}
 
         {/* Timestamp and Copy Button */}
         <div className="flex items-center justify-between mt-1.5 px-2">

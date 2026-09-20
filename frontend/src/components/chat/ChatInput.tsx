@@ -25,10 +25,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white"
-    >
+    <form onSubmit={handleSubmit} className="bg-white">
       <div className="max-w-4xl mx-auto flex gap-2.5 items-stretch">
         <div className="flex-1 relative">
           <textarea

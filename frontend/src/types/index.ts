@@ -16,6 +16,41 @@ export interface Message {
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
+  sources?: GroundingSource[];
+  reliabilityNote?: string;
+}
+
+export interface GroundingSource {
+  uri: string;
+  title: string;
+}
+
+export interface StreamMessagePayload {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string | Date;
+}
+
+export interface StreamStartData {
+  conversationId: string;
+  userMessage: StreamMessagePayload;
+  assistantMessage: StreamMessagePayload;
+}
+
+export interface StreamDoneData {
+  assistantMessage: StreamMessagePayload;
+}
+
+export interface StreamErrorData {
+  message?: string;
+  partial?: string;
+}
+
+export interface StreamReliabilityData {
+  agreement: boolean;
+  score: number;
+  knownAnswer: string;
 }
 
 export interface Conversation {
