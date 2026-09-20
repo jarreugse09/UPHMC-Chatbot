@@ -152,6 +152,7 @@ const ChatContainer: React.FC = () => {
               role: "assistant",
               content: "",
               timestamp: new Date(data.assistantMessage.timestamp),
+                isStreaming: true,
             },
           ]);
         },
@@ -159,22 +160,32 @@ const ChatContainer: React.FC = () => {
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessageId
-                ? { ...msg, content: msg.content + text }
+                  ? { ...msg, content: msg.content + text, isStreaming: false }
                 : msg,
             ),
           );
         },
-        onDone: () => undefined,
-        onError: (data) => {
-          if (data.partial && assistantMessageId) {
+          onDone: () => {
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessageId
-                  ? { ...msg, content: data.partial }
+                  ? { ...msg, isStreaming: false }
                   : msg,
               ),
             );
-          }
+          },
+        onError: (data) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? {
+                      ...msg,
+                      content: data.partial || msg.content,
+                      isStreaming: false,
+                    }
+                  : msg,
+              ),
+            );
         },
       });
 
