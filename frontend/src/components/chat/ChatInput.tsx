@@ -27,9 +27,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-t border-gray-200 bg-white p-4"
+      className="bg-white"
     >
-      <div className="max-w-4xl mx-auto flex gap-3 items-center">
+      <div className="max-w-4xl mx-auto flex gap-2.5 items-stretch">
         <div className="flex-1 relative">
           <textarea
             value={input}
@@ -41,7 +41,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               }
             }}
             placeholder="Ask me anything about UPHSD Molino..."
-            className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-perps-red focus:border-transparent max-h-32 min-h-[3.25rem]"
+            className="block w-full resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 pr-12 text-sm leading-5 transition-colors duration-150 placeholder:text-gray-400 focus:border-perps-red focus:bg-white focus:outline-none focus:ring-2 focus:ring-perps-red/20 max-h-32 min-h-[3.25rem]"
             rows={1}
             disabled={disabled}
           />
@@ -52,7 +52,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           disabled={!isStreaming && (disabled || !input.trim())}
           aria-label={isStreaming ? "Stop generating" : "Send message"}
           title={isStreaming ? "Stop generating" : "Send message"}
-          className="flex-shrink-0 bg-perps-red hover:bg-perps-darkred text-white rounded-xl p-3 h-[52px] flex items-center justify-center transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-shrink-0 bg-perps-red hover:bg-perps-darkred text-white rounded-lg p-3 h-[52px] flex items-center justify-center transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-perps-yellow focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isStreaming ? (
             <Square className="w-5 h-5 fill-current" />
@@ -61,7 +61,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           )}
         </button>
       </div>
-      <p className="text-xs text-gray-500 text-center mt-2 max-w-4xl mx-auto">
+      <p className="text-[11px] text-gray-400 text-center mt-2 max-w-4xl mx-auto">
         Perps AI can make mistakes. Please Verify important information. Thanks
       </p>
     </form>

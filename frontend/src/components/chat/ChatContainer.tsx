@@ -454,7 +454,7 @@ const ChatContainer: React.FC = () => {
         </div>
 
         {/* Input Area */}
-        <div className="bg-white border-t border-gray-200 p-4">
+        <div className="bg-white border-t border-gray-200 px-4 py-3">
           <ChatInput
             onSend={handleSendMessage}
             onStop={stopGenerating}

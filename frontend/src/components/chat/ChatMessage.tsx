@@ -20,10 +20,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   };
 
   return (
-    <div className={`group flex gap-3 my-4 ${isUser ? "justify-end" : ""}`}>
+    <div className={`group flex gap-3.5 my-5 ${isUser ? "justify-end" : ""}`}>
       {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+        className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
           isUser ? "bg-perps-darkred" : "bg-perps-yellow"
         }`}
       >
@@ -37,10 +37,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       {/* Message Bubble */}
       <div className={`relative max-w-[75%] ${isUser ? "order-first" : ""}`}>
         <div
-          className={`prose prose-sm max-w-none break-words rounded-xl px-4 py-3 ${
+          className={`prose prose-sm max-w-none break-words rounded-lg px-4 py-3.5 ${
             isUser
-              ? "bg-perps-red text-white prose-invert"
-              : "bg-white border border-gray-200 text-gray-800"
+              ? "bg-perps-red text-white prose-invert shadow-sm"
+              : "bg-gray-50 border border-gray-200 text-gray-800"
           }`}
         >
           {message.isStreaming && !message.content ? (
@@ -110,7 +110,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           {!isUser && (
             <button
               onClick={handleCopy}
-              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 transition-opacity"
+              aria-label="Copy response"
+              className="rounded-md p-1 text-gray-400 opacity-0 transition-all duration-150 hover:bg-gray-100 hover:text-gray-600 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-perps-yellow group-hover:opacity-100"
             >
               {copied ? (
                 <Check className="w-4 h-4 text-green-500" />
