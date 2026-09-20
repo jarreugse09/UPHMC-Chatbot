@@ -1,17 +1,24 @@
 import React, { useState } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Square } from "lucide-react";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onStop: () => void;
   disabled: boolean;
+  isStreaming: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
+const ChatInput: React.FC<ChatInputProps> = ({
+  onSend,
+  onStop,
+  disabled,
+  isStreaming,
+}) => {
   const [input, setInput] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !disabled) {
+    if (input.trim() && !disabled && !isStreaming) {
       onSend(input.trim());
       setInput("");
     }
@@ -40,12 +47,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
           />
         </div>
         <button
-          type="submit"
-          disabled={disabled || !input.trim()}
+          type={isStreaming ? "button" : "submit"}
+          onClick={isStreaming ? onStop : undefined}
+          disabled={!isStreaming && (disabled || !input.trim())}
+          aria-label={isStreaming ? "Stop generating" : "Send message"}
+          title={isStreaming ? "Stop generating" : "Send message"}
           className="flex-shrink-0 bg-perps-red hover:bg-perps-darkred text-white rounded-xl p-3 h-[52px] flex items-center justify-center transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {disabled ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+          {isStreaming ? (
+            <Square className="w-5 h-5 fill-current" />
           ) : (
             <Send className="w-5 h-5" />
           )}

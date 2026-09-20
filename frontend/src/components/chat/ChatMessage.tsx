@@ -78,7 +78,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                         <span>{match[1]}</span>
                       </div>
                       <pre className="p-3 text-sm overflow-x-auto">
-                        <code className={`language-${match[1]}`}>{children}</code>
+                        <code className={`language-${match[1]}`}>
+                          {children}
+                        </code>
                       </pre>
                     </div>
                   ) : (

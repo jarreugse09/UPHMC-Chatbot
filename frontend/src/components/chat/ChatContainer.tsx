@@ -22,6 +22,8 @@ const ChatContainer: React.FC = () => {
   >(null);
   const [guestSignInModalOpen, setGuestSignInModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const streamAbortControllerRef = useRef<AbortController | null>(null);
+  const streamingMessageIdRef = useRef<string | null>(null);
 
   const GUEST_MESSAGE_LIMIT = 3;
 
@@ -113,6 +115,23 @@ const ChatContainer: React.FC = () => {
     setConversationToDelete(null);
   };
 
+  const stopGenerating = () => {
+    streamAbortControllerRef.current?.abort();
+    streamAbortControllerRef.current = null;
+    const streamingMessageId = streamingMessageIdRef.current;
+
+    if (streamingMessageId) {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === streamingMessageId
+            ? { ...msg, isStreaming: false }
+            : msg,
+        ),
+      );
+    }
+    setLoading(false);
+  };
+
   const handleSendMessage = async (content: string) => {
     // Check if guest has reached message limit
     if (!user && guestLimitReached) {
@@ -132,11 +151,14 @@ const ChatContainer: React.FC = () => {
 
     let assistantMessageId = "";
     let streamedConversationId = currentConversation?._id || null;
+    const abortController = new AbortController();
+    streamAbortControllerRef.current = abortController;
 
     try {
       await chatAPI.streamMessage(currentConversation?._id || null, content, {
         onStart: (data) => {
           assistantMessageId = data.assistantMessage.id;
+          streamingMessageIdRef.current = assistantMessageId;
           streamedConversationId = data.conversationId;
 
           setMessages((prev) => [
@@ -187,7 +209,7 @@ const ChatContainer: React.FC = () => {
             ),
           );
         },
-      });
+      }, abortController.signal);
 
       if (user) {
         await loadConversations();
@@ -197,6 +219,16 @@ const ChatContainer: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Failed to send message:", error);
+      if (error?.name === "AbortError") {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, isStreaming: false }
+              : msg,
+          ),
+        );
+        return;
+      }
       // Check if it's a 403 (guest message limit reached)
       if (error?.response?.status === 403) {
         setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
@@ -206,6 +238,8 @@ const ChatContainer: React.FC = () => {
       }
     } finally {
       setLoading(false);
+      streamAbortControllerRef.current = null;
+      streamingMessageIdRef.current = null;
     }
   };
 
@@ -373,7 +407,9 @@ const ChatContainer: React.FC = () => {
         <div className="bg-white border-t border-gray-200 p-4">
           <ChatInput
             onSend={handleSendMessage}
+            onStop={stopGenerating}
             disabled={loading || guestLimitReached}
+            isStreaming={loading}
           />
           {guestLimitReached && (
             <p className="text-center text-sm text-perps-red mt-2 font-medium">
