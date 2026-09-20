@@ -130,44 +130,63 @@ const ChatContainer: React.FC = () => {
     };
     setMessages((prev) => [...prev, tempUserMessage]);
 
+    let assistantMessageId = "";
+    let streamedConversationId = currentConversation?._id || null;
+
     try {
-      const response = await chatAPI.sendMessage(
+      await chatAPI.streamMessage(
         currentConversation?._id || null,
         content,
+        {
+          onStart: (data) => {
+            assistantMessageId = data.assistantMessage.id;
+            streamedConversationId = data.conversationId;
+
+            setMessages((prev) => [
+              ...prev.filter((msg) => msg.id !== tempUserMessage.id),
+              {
+                id: data.userMessage.id,
+                role: "user",
+                content: data.userMessage.content,
+                timestamp: new Date(data.userMessage.timestamp),
+              },
+              {
+                id: data.assistantMessage.id,
+                role: "assistant",
+                content: "",
+                timestamp: new Date(data.assistantMessage.timestamp),
+              },
+            ]);
+          },
+          onChunk: (text) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: msg.content + text }
+                  : msg,
+              ),
+            );
+          },
+          onDone: () => undefined,
+          onError: (data) => {
+            if (data.partial && assistantMessageId) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: data.partial }
+                    : msg,
+                ),
+              );
+            }
+          },
+        },
       );
 
-      const newMessages: Message[] = [
-        {
-          id: response.data.userMessage.id,
-          role: "user",
-          content: response.data.userMessage.content,
-          timestamp: new Date(response.data.userMessage.timestamp),
-        },
-        {
-          id: response.data.assistantMessage.id,
-          role: "assistant",
-          content: response.data.assistantMessage.content,
-          timestamp: new Date(response.data.assistantMessage.timestamp),
-        },
-      ];
-
       if (user) {
-        if (!currentConversation) {
-          await loadConversations();
-          await loadConversation(response.data.conversationId);
-        } else {
-          setMessages((prev) => {
-            const filtered = prev.filter((m) => m.id !== tempUserMessage.id);
-            return [...filtered, ...newMessages];
-          });
-          await loadConversations();
+        await loadConversations();
+        if (!currentConversation && streamedConversationId) {
+          await loadConversation(streamedConversationId);
         }
-      } else {
-        // For guests, just update the local state
-        setMessages((prev) => {
-          const filtered = prev.filter((m) => m.id !== tempUserMessage.id);
-          return [...filtered, ...newMessages];
-        });
       }
     } catch (error: any) {
       console.error("Failed to send message:", error);
