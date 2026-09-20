@@ -8,6 +8,7 @@ if (!apiKey) {
 }
 
 const genAI = new GoogleGenerativeAI(apiKey);
+const modelName = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
 // ---------------------------------------------------------------------------
 // SYSTEM INSTRUCTION
@@ -29,7 +30,7 @@ Follow-up rule: this does NOT mean repeating the same paragraph verbatim. If a u
 Honesty rule: never fabricate a name, title, figure, or fact you don't actually have. If a name is reported but not independently confirmed, say so rather than stating it as settled fact. It's better to say "I don't have that specific information" than to guess.`;
 
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash",
+  model: modelName,
   systemInstruction: SYSTEM_INSTRUCTION,
 });
 
