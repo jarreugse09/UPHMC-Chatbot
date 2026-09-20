@@ -134,53 +134,49 @@ const ChatContainer: React.FC = () => {
     let streamedConversationId = currentConversation?._id || null;
 
     try {
-      await chatAPI.streamMessage(
-        currentConversation?._id || null,
-        content,
-        {
-          onStart: (data) => {
-            assistantMessageId = data.assistantMessage.id;
-            streamedConversationId = data.conversationId;
+      await chatAPI.streamMessage(currentConversation?._id || null, content, {
+        onStart: (data) => {
+          assistantMessageId = data.assistantMessage.id;
+          streamedConversationId = data.conversationId;
 
-            setMessages((prev) => [
-              ...prev.filter((msg) => msg.id !== tempUserMessage.id),
-              {
-                id: data.userMessage.id,
-                role: "user",
-                content: data.userMessage.content,
-                timestamp: new Date(data.userMessage.timestamp),
-              },
-              {
-                id: data.assistantMessage.id,
-                role: "assistant",
-                content: "",
-                timestamp: new Date(data.assistantMessage.timestamp),
-              },
-            ]);
-          },
-          onChunk: (text) => {
+          setMessages((prev) => [
+            ...prev.filter((msg) => msg.id !== tempUserMessage.id),
+            {
+              id: data.userMessage.id,
+              role: "user",
+              content: data.userMessage.content,
+              timestamp: new Date(data.userMessage.timestamp),
+            },
+            {
+              id: data.assistantMessage.id,
+              role: "assistant",
+              content: "",
+              timestamp: new Date(data.assistantMessage.timestamp),
+            },
+          ]);
+        },
+        onChunk: (text) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: msg.content + text }
+                : msg,
+            ),
+          );
+        },
+        onDone: () => undefined,
+        onError: (data) => {
+          if (data.partial && assistantMessageId) {
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessageId
-                  ? { ...msg, content: msg.content + text }
+                  ? { ...msg, content: data.partial }
                   : msg,
               ),
             );
-          },
-          onDone: () => undefined,
-          onError: (data) => {
-            if (data.partial && assistantMessageId) {
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: data.partial }
-                    : msg,
-                ),
-              );
-            }
-          },
+          }
         },
-      );
+      });
 
       if (user) {
         await loadConversations();
