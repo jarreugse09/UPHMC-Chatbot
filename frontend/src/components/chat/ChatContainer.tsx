@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { LogOut, Menu, X, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -10,6 +10,14 @@ import ConversationList from "./ConversationList";
 
 const STREAM_FALLBACK_MESSAGE =
   "I'm sorry, I can't access the AI service right now. Please try asking again in a moment.";
+
+interface ConversationMessagePayload {
+  _id?: string;
+  id?: string;
+  role: Message["role"];
+  content: string;
+  timestamp: string | Date;
+}
 
 const ChatContainer: React.FC = () => {
   const { user, logout } = useAuth();
@@ -43,23 +51,7 @@ const ChatContainer: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => {
-    if (user) {
-      loadConversations();
-    } else {
-      setConversations([]);
-      setCurrentConversation(null);
-      setMessages([]);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    return () => {
-      streamAbortControllerRef.current?.abort();
-    };
-  }, []);
-
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -68,7 +60,23 @@ const ChatContainer: React.FC = () => {
     } catch (error) {
       console.error("Failed to load conversations:", error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadConversations();
+    } else {
+      setConversations([]);
+      setCurrentConversation(null);
+      setMessages([]);
+    }
+  }, [user, loadConversations]);
+
+  useEffect(() => {
+    return () => {
+      streamAbortControllerRef.current?.abort();
+    };
+  }, []);
 
   const loadConversation = async (id: string) => {
     if (!user) return;
@@ -76,12 +84,14 @@ const ChatContainer: React.FC = () => {
     try {
       const response = await conversationAPI.getById(id);
       setCurrentConversation(response.data.conversation);
-      const mappedMessages = response.data.messages.map((msg: any) => ({
-        id: msg._id || msg.id,
+      const mappedMessages = response.data.messages.map(
+        (msg: ConversationMessagePayload) => ({
+        id: msg._id || msg.id || "",
         role: msg.role,
         content: msg.content,
-        timestamp: msg.timestamp,
-      }));
+        timestamp: new Date(msg.timestamp),
+        }),
+      );
       setMessages(mappedMessages);
       setSidebarOpen(false);
     } catch (error) {
@@ -231,9 +241,14 @@ const ChatContainer: React.FC = () => {
           await loadConversation(streamedConversationId);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to send message:", error);
-      if (error?.name === "AbortError") {
+      const errorDetails = error as {
+        name?: string;
+        status?: number;
+        response?: { status?: number };
+      };
+      if (errorDetails.name === "AbortError") {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -244,7 +259,10 @@ const ChatContainer: React.FC = () => {
         return;
       }
       // Check if it's a 403 (guest message limit reached)
-      if (error?.status === 403 || error?.response?.status === 403) {
+      if (
+        errorDetails.status === 403 ||
+        errorDetails.response?.status === 403
+      ) {
         setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
         setGuestSignInModalOpen(true);
       } else if (assistantMessageId) {
@@ -327,22 +345,22 @@ const ChatContainer: React.FC = () => {
         )}
 
         {user && user.name && (
-          <div className="border-t border-gray-200 bg-gray-50/80 p-5">
-            <div className="flex items-center justify-between gap-3">
+          <div className="border-t border-gray-200 px-4 py-3">
+            <div className="flex items-center justify-between gap-2 rounded-md px-2 py-2">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-perps-darkred text-base font-bold text-white shadow-sm">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-perps-darkred text-sm font-semibold text-white">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-gray-800">
+                  <p className="truncate text-sm font-medium text-gray-800">
                     {user.name}
                   </p>
-                  <p className="truncate text-xs text-gray-500">{user.email}</p>
+                  <p className="truncate text-[11px] text-gray-400">{user.email}</p>
                 </div>
               </div>
               <button
                 onClick={logout}
-                className="flex-shrink-0 rounded-lg p-2 text-gray-500 transition-colors duration-200 hover:bg-white hover:text-perps-red focus:outline-none focus:ring-2 focus:ring-perps-yellow focus:ring-offset-1"
+                className="flex-shrink-0 rounded-md p-1.5 text-gray-400 transition-colors duration-150 hover:bg-gray-50 hover:text-perps-red focus:outline-none focus:ring-2 focus:ring-perps-yellow focus:ring-offset-1"
                 title="Logout"
                 aria-label="Log out"
               >
