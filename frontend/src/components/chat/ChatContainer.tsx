@@ -8,6 +8,9 @@ import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import ConversationList from "./ConversationList";
 
+const STREAM_FALLBACK_MESSAGE =
+  "I'm sorry, I can't access the AI service right now. Please try asking again in a moment.";
+
 const ChatContainer: React.FC = () => {
   const { user, logout } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -50,6 +53,12 @@ const ChatContainer: React.FC = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    return () => {
+      streamAbortControllerRef.current?.abort();
+    };
+  }, []);
+
   const loadConversations = async () => {
     if (!user) return;
 
@@ -63,6 +72,7 @@ const ChatContainer: React.FC = () => {
 
   const loadConversation = async (id: string) => {
     if (!user) return;
+    stopGenerating();
     try {
       const response = await conversationAPI.getById(id);
       setCurrentConversation(response.data.conversation);
@@ -80,6 +90,7 @@ const ChatContainer: React.FC = () => {
   };
 
   const handleNewConversation = () => {
+    stopGenerating();
     setCurrentConversation(null);
     setMessages([]);
     setSidebarOpen(false);
@@ -123,9 +134,7 @@ const ChatContainer: React.FC = () => {
     if (streamingMessageId) {
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === streamingMessageId
-            ? { ...msg, isStreaming: false }
-            : msg,
+          msg.id === streamingMessageId ? { ...msg, isStreaming: false } : msg,
         ),
       );
     }
@@ -155,61 +164,66 @@ const ChatContainer: React.FC = () => {
     streamAbortControllerRef.current = abortController;
 
     try {
-      await chatAPI.streamMessage(currentConversation?._id || null, content, {
-        onStart: (data) => {
-          assistantMessageId = data.assistantMessage.id;
-          streamingMessageIdRef.current = assistantMessageId;
-          streamedConversationId = data.conversationId;
+      await chatAPI.streamMessage(
+        currentConversation?._id || null,
+        content,
+        {
+          onStart: (data) => {
+            assistantMessageId = data.assistantMessage.id;
+            streamingMessageIdRef.current = assistantMessageId;
+            streamedConversationId = data.conversationId;
 
-          setMessages((prev) => [
-            ...prev.filter((msg) => msg.id !== tempUserMessage.id),
-            {
-              id: data.userMessage.id,
-              role: "user",
-              content: data.userMessage.content,
-              timestamp: new Date(data.userMessage.timestamp),
-            },
-            {
-              id: data.assistantMessage.id,
-              role: "assistant",
-              content: "",
-              timestamp: new Date(data.assistantMessage.timestamp),
-              isStreaming: true,
-            },
-          ]);
+            setMessages((prev) => [
+              ...prev.filter((msg) => msg.id !== tempUserMessage.id),
+              {
+                id: data.userMessage.id,
+                role: "user",
+                content: data.userMessage.content,
+                timestamp: new Date(data.userMessage.timestamp),
+              },
+              {
+                id: data.assistantMessage.id,
+                role: "assistant",
+                content: "",
+                timestamp: new Date(data.assistantMessage.timestamp),
+                isStreaming: true,
+              },
+            ]);
+          },
+          onChunk: (text) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: msg.content + text, isStreaming: false }
+                  : msg,
+              ),
+            );
+          },
+          onDone: () => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, isStreaming: false }
+                  : msg,
+              ),
+            );
+          },
+          onError: (data) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? {
+                      ...msg,
+                      content: data.partial || data.message || msg.content,
+                      isStreaming: false,
+                    }
+                  : msg,
+              ),
+            );
+          },
         },
-        onChunk: (text) => {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: msg.content + text, isStreaming: false }
-                : msg,
-            ),
-          );
-        },
-        onDone: () => {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, isStreaming: false }
-                : msg,
-            ),
-          );
-        },
-        onError: (data) => {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? {
-                    ...msg,
-                    content: data.partial || msg.content,
-                    isStreaming: false,
-                  }
-                : msg,
-            ),
-          );
-        },
-      }, abortController.signal);
+        abortController.signal,
+      );
 
       if (user) {
         await loadConversations();
@@ -230,9 +244,21 @@ const ChatContainer: React.FC = () => {
         return;
       }
       // Check if it's a 403 (guest message limit reached)
-      if (error?.response?.status === 403) {
+      if (error?.status === 403 || error?.response?.status === 403) {
         setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
         setGuestSignInModalOpen(true);
+      } else if (assistantMessageId) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? {
+                  ...msg,
+                  content: msg.content || STREAM_FALLBACK_MESSAGE,
+                  isStreaming: false,
+                }
+              : msg,
+          ),
+        );
       } else {
         setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
       }
