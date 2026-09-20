@@ -18,6 +18,21 @@ const generationConfig = {
     responseMimeType: "text/plain",
 };
 const RESPONSE_FORMAT_INSTRUCTION = "Format the answer as clean Markdown where it improves readability. Use concise headings, bold or italic emphasis, bullet or numbered lists for steps, Markdown tables for comparisons, blockquotes for cited statements, and fenced code blocks with a language label for code. Do not force Markdown into simple conversational replies.";
+const TUITION_QUESTION_ALIASES = [
+    "what is the tuition fee for bs computer science",
+    "how much is tuition for bs computer science",
+    "how much is the tuition fee for computer science",
+    "how much is tuition for each program",
+    "what are the tuition fees for each program",
+    "how much are the tuition fees",
+];
+const normalizeQuestion = (question) => question.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+const isTuitionQuestion = (question) => {
+    const normalizedQuestion = normalizeQuestion(question);
+    const hasTuitionTopic = /\b(tuition|fee|fees|cost|payment|installment|down payment)\b/.test(normalizedQuestion);
+    const hasProgramTopic = /\b(program|programs|course|courses|college|kindergarten|grade school|junior high|senior high)\b/.test(normalizedQuestion);
+    return hasTuitionTopic && (hasProgramTopic || normalizedQuestion.length > 0);
+};
 const FEW_SHOT_CONTENTS = [
     {
         role: "user",
@@ -185,7 +200,7 @@ const FEW_SHOT_CONTENTS = [
         role: "model",
         parts: [
             {
-                text: "Okay! I can provide you with an estimated range for the tuition fee for the BS Computer Science program at the University of Perpetual Help System DALTA – Molino Campus. Please note that tuition fees may change and can vary depending on the academic year, number of units enrolled, and other miscellaneous charges.\n\n---\n\n### Estimated Tuition Fee Range (per semester)\n- ₱30,000 – ₱45,000  \n  *This amount is an estimate and may be higher or lower depending on several factors.*\n\n---\n\n### Factors That May Affect Tuition Fees\n- Number of Units  \n  Tuition is usually charged per unit, so enrolling in more units may increase the total cost.\n\n- Miscellaneous Fees  \n  These may include fees for library services, student activities, and other institutional services.\n\n- Laboratory Fees  \n  Some subjects with laboratory components may require additional fees.\n\n- Payment Plan  \n  The chosen payment scheme (full payment or installment) may affect the total amount payable.\n\n---\n\n### How to Get the Exact Tuition Fee\nTo obtain the most accurate and updated tuition fee information, you may:\n1. Contact the Admissions Office for a detailed fee breakdown for the BS Computer Science program.  \n2. Visit the official UPHSD Molino Campus website and check sections related to Admissions or Tuition Fees.  \n3. Inquire directly at the Registrar’s Office regarding tuition and payment options.\n\n---\n\n### When Inquiring, Please Be Ready to Specify\n- The BS Computer Science program  \n- The academic year you are interested in  \n- Whether you are a new or continuing student  \n\nFor the most reliable and personalized information, it is best to coordinate directly with the university.",
+                text: "Specific tuition fees vary by program, academic year, units, and applicable promotions. The following estimated ranges are associated with the University of Perpetual Help System DALTA – Molino Campus. College figures are generally per semester; basic education figures are generally per year.\n\n### College / Undergraduate Programs\n\n| College or department | Estimated tuition range | Program examples |\n| --- | ---: | --- |\n| Nursing and Allied Health | ₱45,000 – ₱62,189 | BS Nursing, BS Medical Technology |\n| Information Technology and Computer Studies | ₱45,000 – ₱49,715 | BS Information Technology, BS Computer Science |\n| Engineering and Aviation | ₱45,000 – ₱55,000 | BS Civil Engineering, BS Electrical Engineering |\n| Business, Accountancy and Hospitality | ₱35,000 – ₱45,000 | BS Accountancy, BS Business Administration, BS Hospitality Management |\n| Media, Arts and Design | ₱38,000 – ₱45,000 | AB Multimedia Arts, AB Communication |\n| Rehabilitation Sciences | ₱29,715 – ₱40,000 | BS Physical Therapy |\n| Arts, Sciences and Education | ₱22,000 – ₱27,000 | BS Psychology, Bachelor of Secondary Education |\n\nMany figures reflect anniversary promotional rates and may change.\n\n### Basic Education and Senior High School\n\n- **Kindergarten:** ₱39,900 per year under a special anniversary promotional rate\n- **Grade School / Junior High School:** ₱40,000 – ₱50,000 base tuition per year\n- **Senior High School, voucher recipient:** ₱10,660 – ₱14,160 estimated out-of-pocket balance after subsidy\n- **Senior High School, non-voucher:** ₱28,160 – ₱35,000 per year\n\n### Enrollment and Payment Details\n\n- Initial enrollment down payment may be as low as **₱2,000**.\n- College and graduate programs may offer four-part installment payments at enrollment, prelims, midterms, and finals, or scheduled monthly payments.\n\nFor the latest program-specific assessment, contact the campus directly or review the [Molino Campus website](https://perpetualdalta.edu.ph/new/molino-campus-home/) and [Molino admissions page](https://perpetualdalta.edu.ph/new/admissions-molino-campus/). Promotional rates, subsidies, and fees are subject to change.",
             },
         ],
     },
@@ -431,11 +446,21 @@ class GeminiService {
                     },
                 ],
             });
+            const knownAnswer = this.findKnownAnswer(userMessage);
+            if (knownAnswer) {
+                yield { type: "chunk", text: knownAnswer };
+                yield {
+                    type: "reliability",
+                    agreement: true,
+                    score: 1,
+                    knownAnswer,
+                };
+                return;
+            }
             console.log(`Calling Gemini streaming model with ${conversationHistory.length} history messages`);
             const result = await model.generateContentStream({
                 contents,
                 generationConfig,
-                tools: [{ googleSearchRetrieval: {} }],
             });
             let receivedText = false;
             let responseText = "";
@@ -447,8 +472,7 @@ class GeminiService {
                     responseText += text;
                     yield { type: "chunk", text };
                 }
-                const groundingChunks = chunk.candidates?.[0]?.groundingMetadata
-                    ?.groundingChuncks;
+                const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChuncks;
                 groundingChunks?.forEach((groundingChunk) => {
                     const source = groundingChunk.web;
                     if (source?.uri) {
@@ -465,16 +489,6 @@ class GeminiService {
                     sources: Array.from(groundingSources.values()),
                 };
             }
-            const knownAnswer = this.findKnownAnswer(userMessage);
-            if (knownAnswer) {
-                const score = this.calculateSimilarity(knownAnswer, responseText);
-                yield {
-                    type: "reliability",
-                    agreement: score >= 0.35,
-                    score,
-                    knownAnswer,
-                };
-            }
             if (!receivedText) {
                 throw new Error("Empty response from AI model");
             }
@@ -486,13 +500,18 @@ class GeminiService {
         }
     }
     findKnownAnswer(userMessage) {
-        const normalizedMessage = userMessage.trim().toLowerCase();
+        const normalizedMessage = normalizeQuestion(userMessage);
+        const isTuitionAlias = TUITION_QUESTION_ALIASES.some((alias) => normalizeQuestion(alias) === normalizedMessage);
+        const isKnownTuitionQuestion = isTuitionQuestion(userMessage);
         for (let index = 0; index < FEW_SHOT_CONTENTS.length - 1; index += 1) {
             const question = FEW_SHOT_CONTENTS[index];
             const answer = FEW_SHOT_CONTENTS[index + 1];
             if (question.role === "user" &&
                 answer.role === "model" &&
-                question.parts[0].text.trim().toLowerCase() === normalizedMessage) {
+                (question.parts[0].text.trim().toLowerCase() === normalizedMessage ||
+                    ((isTuitionAlias || isKnownTuitionQuestion) &&
+                        question.parts[0].text ===
+                            "How much is the tuition fee for BS Computer Science?"))) {
                 return answer.parts[0].text;
             }
         }
@@ -524,11 +543,13 @@ class GeminiService {
                     },
                 ],
             });
+            const knownAnswer = this.findKnownAnswer(userMessage);
+            if (knownAnswer)
+                return knownAnswer;
             console.log(`Calling Gemini model with ${conversationHistory.length} history messages`);
             const result = await model.generateContent({
                 contents,
                 generationConfig,
-                tools: [{ googleSearchRetrieval: {} }],
             });
             const response = await result.response;
             const text = response.text();
