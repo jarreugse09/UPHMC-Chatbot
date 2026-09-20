@@ -327,20 +327,24 @@ const ChatContainer: React.FC = () => {
         )}
 
         {user && user.name && (
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
+          <div className="border-t border-gray-200 bg-gray-50/80 p-5">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-perps-darkred flex items-center justify-center text-white font-bold">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-perps-darkred text-base font-bold text-white shadow-sm">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-sm font-medium text-gray-800">
-                  {user.name}
-                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-800">
+                    {user.name}
+                  </p>
+                  <p className="truncate text-xs text-gray-500">{user.email}</p>
+                </div>
               </div>
               <button
                 onClick={logout}
-                className="text-gray-500 hover:text-perps-red transition"
+                className="flex-shrink-0 rounded-lg p-2 text-gray-500 transition-colors duration-200 hover:bg-white hover:text-perps-red focus:outline-none focus:ring-2 focus:ring-perps-yellow focus:ring-offset-1"
                 title="Logout"
+                aria-label="Log out"
               >
                 <LogOut className="w-5 h-5" />
               </button>
