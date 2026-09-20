@@ -39,15 +39,14 @@ const ConversationList: React.FC<ConversationListProps> = ({
   onDelete,
   onNew,
 }) => {
-  const groupedConversations = conversations.reduce<Record<string, Conversation[]>>(
-    (groups, conversation) => {
-      const group = getConversationGroup(new Date(conversation.updatedAt));
-      groups[group] = groups[group] || [];
-      groups[group].push(conversation);
-      return groups;
-    },
-    {},
-  );
+  const groupedConversations = conversations.reduce<
+    Record<string, Conversation[]>
+  >((groups, conversation) => {
+    const group = getConversationGroup(new Date(conversation.updatedAt));
+    groups[group] = groups[group] || [];
+    groups[group].push(conversation);
+    return groups;
+  }, {});
   const groupOrder = ["Today", "Yesterday", "Previous 7 days", "Older"];
 
   return (

@@ -86,10 +86,10 @@ const ChatContainer: React.FC = () => {
       setCurrentConversation(response.data.conversation);
       const mappedMessages = response.data.messages.map(
         (msg: ConversationMessagePayload) => ({
-        id: msg._id || msg.id || "",
-        role: msg.role,
-        content: msg.content,
-        timestamp: new Date(msg.timestamp),
+          id: msg._id || msg.id || "",
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.timestamp),
         }),
       );
       setMessages(mappedMessages);
@@ -355,7 +355,9 @@ const ChatContainer: React.FC = () => {
                   <p className="truncate text-sm font-medium text-gray-800">
                     {user.name}
                   </p>
-                  <p className="truncate text-[11px] text-gray-400">{user.email}</p>
+                  <p className="truncate text-[11px] text-gray-400">
+                    {user.email}
+                  </p>
                 </div>
               </div>
               <button
