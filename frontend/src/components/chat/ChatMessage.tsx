@@ -43,42 +43,58 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
               : "bg-white border border-gray-200 text-gray-800"
           }`}
         >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              p: ({ node, ...props }) => (
-                <p className="mb-2 last:mb-0" {...props} />
-              ),
-              ol: ({ node, ...props }) => (
-                <ol className="list-decimal list-inside" {...props} />
-              ),
-              ul: ({ node, ...props }) => (
-                <ul className="list-disc list-inside" {...props} />
-              ),
-              code({ inline, className, children, ...props }: any) {
-                const match = /language-(\w+)/.exec(className || "");
-                return !inline && match ? (
-                  <div className="my-2 bg-gray-800 rounded-md">
-                    <div className="flex items-center justify-between px-3 py-1 bg-gray-700 text-gray-300 text-xs rounded-t-md">
-                      <span>{match[1]}</span>
+          {message.isStreaming && !message.content ? (
+            <div
+              className="flex items-center gap-1 h-5"
+              role="status"
+              aria-label="Perps AI is typing"
+            >
+              {[0, 1, 2].map((dot) => (
+                <span
+                  key={dot}
+                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                  style={{ animationDelay: `${dot * 120}ms` }}
+                />
+              ))}
+            </div>
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ node, ...props }) => (
+                  <p className="mb-2 last:mb-0" {...props} />
+                ),
+                ol: ({ node, ...props }) => (
+                  <ol className="list-decimal list-inside" {...props} />
+                ),
+                ul: ({ node, ...props }) => (
+                  <ul className="list-disc list-inside" {...props} />
+                ),
+                code({ inline, className, children, ...props }: any) {
+                  const match = /language-(\w+)/.exec(className || "");
+                  return !inline && match ? (
+                    <div className="my-2 bg-gray-800 rounded-md">
+                      <div className="flex items-center justify-between px-3 py-1 bg-gray-700 text-gray-300 text-xs rounded-t-md">
+                        <span>{match[1]}</span>
+                      </div>
+                      <pre className="p-3 text-sm overflow-x-auto">
+                        <code className={`language-${match[1]}`}>{children}</code>
+                      </pre>
                     </div>
-                    <pre className="p-3 text-sm overflow-x-auto">
-                      <code className={`language-${match[1]}`}>{children}</code>
-                    </pre>
-                  </div>
-                ) : (
-                  <code
-                    className="px-1 py-0.5 bg-gray-200 rounded-sm text-sm"
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                );
-              },
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+                  ) : (
+                    <code
+                      className="px-1 py-0.5 bg-gray-200 rounded-sm text-sm"
+                      {...props}
+                    >
+                      {children}
+                    </code>
+                  );
+                },
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          )}
         </div>
 
         {/* Timestamp and Copy Button */}
