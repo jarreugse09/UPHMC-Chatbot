@@ -416,6 +416,39 @@ const FEW_SHOT_CONTENTS = [
     },
 ];
 class GeminiService {
+    async *generateResponseStream(userMessage, conversationHistory = []) {
+        try {
+            const contents = conversationHistory.map((msg) => ({
+                role: msg.role === "assistant" ? "model" : "user",
+                parts: [{ text: msg.content }],
+            }));
+            contents.push({
+                role: "user",
+                parts: [{ text: userMessage }],
+            });
+            console.log(`Calling Gemini streaming model with ${conversationHistory.length} history messages`);
+            const result = await model.generateContentStream({
+                contents,
+                generationConfig,
+            });
+            let receivedText = false;
+            for await (const chunk of result.stream) {
+                const text = chunk.text();
+                if (text) {
+                    receivedText = true;
+                    yield text;
+                }
+            }
+            if (!receivedText) {
+                throw new Error("Empty response from AI model");
+            }
+            console.log("Gemini streaming response completed successfully");
+        }
+        catch (error) {
+            console.error("Gemini streaming API Error:", error);
+            throw new Error("Failed to generate streaming response from AI");
+        }
+    }
     async generateResponse(userMessage, conversationHistory = []) {
         try {
             const contents = conversationHistory.map((msg) => ({
